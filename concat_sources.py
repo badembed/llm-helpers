@@ -3,50 +3,54 @@ import argparse
 import pathlib
 import sys
 
-# Default source file extensions – adjust as needed
+import pyperclip
+
 DEFAULT_EXTS = {
-    ".c", ".h", ".cpp", ".hpp",
-    ".cc", ".hh", ".py", ".js",
-    ".ts", ".java", ".cs",
-    ".go", ".rs", ".php",
-    ".html", ".css"
+    ".c",
+    ".h",
+    ".cpp",
+    ".hpp",
+    ".cc",
+    ".hh",
+    ".py",
+    ".js",
+    ".ts",
+    ".java",
+    ".cs",
+    ".go",
+    ".rs",
+    ".php",
+    ".html",
+    ".css",
 }
 
 
 def is_source_file(path: pathlib.Path, exts) -> bool:
     if not path.is_file():
         return False
-    if exts is None:  # if exts is None, accept all files
+    if exts is None:
         return True
     return path.suffix.lower() in exts
 
 
 def collect_files(folder: pathlib.Path, recursive: bool, exts):
-    if recursive:
-        it = folder.rglob("*")
-    else:
-        it = folder.glob("*")
-
+    it = folder.rglob("*") if recursive else folder.glob("*")
     files = [p for p in it if is_source_file(p, exts)]
-    # Sort for deterministic output
     files.sort(key=lambda p: str(p).lower())
     return files
 
 
 def make_big_file(files, output_path: pathlib.Path, base_folder: pathlib.Path):
     with output_path.open("w", encoding="utf-8") as out:
-        for i, path in enumerate(files, start=1):
-            # Relative name from base folder for nicer headings
+        for path in files:
             rel_name = path.relative_to(base_folder)
 
-            # Write heading
             out.write(f"## {rel_name}\n")
             out.write("```" + "\n")
 
             try:
                 text = path.read_text(encoding="utf-8")
             except UnicodeDecodeError:
-                # Fallback: read as binary and replace undecodable bytes
                 text = path.read_text(encoding="utf-8", errors="replace")
 
             out.write(text.rstrip("\n") + "\n")
@@ -55,27 +59,27 @@ def make_big_file(files, output_path: pathlib.Path, base_folder: pathlib.Path):
     print(f"Wrote {len(files)} files into: {output_path}")
 
 
+def copy_output_to_clipboard(output_path: pathlib.Path):
+    data = output_path.read_text(encoding="utf-8")
+    pyperclip.copy(data)
+    print("Copied output file content to clipboard.")
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description="Create a big Markdown file that contains all source files from a folder."
     )
+    parser.add_argument("folder", help="Folder containing source files.")
     parser.add_argument(
-        "folder",
-        help="Folder containing source files."
-    )
-    parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         help="Output file path (default: <folder>/all_sources.md).",
     )
     parser.add_argument(
-        "-r", "--recursive",
-        action="store_true",
-        help="Recurse into subdirectories."
+        "-r", "--recursive", action="store_true", help="Recurse into subdirectories."
     )
     parser.add_argument(
-        "--all",
-        action="store_true",
-        help="Include ALL files (ignore extensions)."
+        "--all", action="store_true", help="Include ALL files (ignore extensions)."
     )
     parser.add_argument(
         "--ext",
@@ -97,7 +101,6 @@ def main(argv=None):
         print(f"Error: {folder} is not a directory.", file=sys.stderr)
         return 1
 
-    # Determine extensions to use
     if args.all:
         exts = None
     elif args.ext:
@@ -105,11 +108,11 @@ def main(argv=None):
     else:
         exts = DEFAULT_EXTS
 
-    # Determine output file path
-    if args.output:
-        output_path = pathlib.Path(args.output).resolve()
-    else:
-        output_path = folder / "all_sources.md"
+    output_path = (
+        pathlib.Path(args.output).resolve()
+        if args.output
+        else (folder / "all_sources.md")
+    )
 
     files = collect_files(folder, recursive=args.recursive, exts=exts)
     if not files:
@@ -117,6 +120,9 @@ def main(argv=None):
         return 1
 
     make_big_file(files, output_path, base_folder=folder)
+
+    copy_output_to_clipboard(output_path)
+
     return 0
 
 
