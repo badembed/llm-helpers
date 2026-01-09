@@ -22,6 +22,9 @@ DEFAULT_EXTS = {
     ".php",
     ".html",
     ".css",
+    ".yml",
+    ".toml",
+    "*",
 }
 
 
